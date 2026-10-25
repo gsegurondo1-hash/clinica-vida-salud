@@ -1,0 +1,45 @@
+# Ejecucion local con Docker:  docker compose up --build
+#   Frontend: http://localhost:8080     API: http://localhost:8000/api/health
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: clinica_vida_salud
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d clinica_vida_salud"]
+      interval: 3s
+      retries: 20
+
+  api:
+    build: ./backend
+    environment:
+      PORT: "8000"
+      DB_HOST: db
+      DB_NAME: clinica_vida_salud
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      APP_SECRET: clave-local-de-desarrollo-cambiar-123456
+      APP_DEBUG: "true"
+      DEMO_MODE: "true"
+      CORS_ORIGIN: "*"
+      FRONTEND_URL: http://localhost:8080
+      CRON_SECRET: clave-cron-local
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    image: nginx:alpine
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+    ports:
+      - "8080:80"
+
+volumes:
+  pgdata:
