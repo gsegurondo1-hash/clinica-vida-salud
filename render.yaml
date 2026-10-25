@@ -26,8 +26,12 @@ services:
         generateValue: true
       - key: APP_TIMEZONE
         value: America/La_Paz
-      - key: DEMO_MODE
-        value: "true"
+      - key: DEMO_MODE          # false: el enlace de recuperacion solo llega por correo
+        value: "false"
+      - key: BREVO_API_KEY      # clave API de Brevo (correos reales)
+        sync: false
+      - key: MAIL_FROM_EMAIL    # correo remitente verificado en Brevo
+        sync: false
       - key: DEMO_PASSWORD
         value: Clinica2026*
       - key: CORS_ORIGIN        # URL del frontend, ej: https://clinica-vida-salud-web.onrender.com

@@ -97,7 +97,7 @@ git push -u origin main
      | `DATABASE_URL` | Internal Database URL de la base |
      | `APP_SECRET` | texto aleatorio de 32 caracteres o más |
      | `APP_TIMEZONE` | `America/La_Paz` |
-     | `DEMO_MODE` | `true` (muestra el enlace de recuperación en pantalla) |
+     | `DEMO_MODE` | `false` |
      | `CRON_SECRET` | texto aleatorio (para los recordatorios) |
      | `CORS_ORIGIN` | URL del frontend (se completa en el paso 4) |
      | `FRONTEND_URL` | URL del frontend (paso 4) |
@@ -115,19 +115,29 @@ Los cron jobs de Render son de pago. Opciones gratuitas: crear un trabajo diario
 `https://SU-API.onrender.com/api/cron/recordatorios` con la cabecera `X-Cron-Key: <valor de CRON_SECRET>`.
 Genera los recordatorios de las citas de mañana y envía las notificaciones pendientes.
 
-### Correos reales (opcional)
+### Correos reales: recuperación de contraseña y notificaciones
 
-Render gratis bloquea los puertos SMTP, por eso el backend usa la API HTTPS de [Resend](https://resend.com).
-Defina `RESEND_API_KEY` y `MAIL_FROM`. Sin `RESEND_API_KEY` los correos se simulan: la notificación queda como
-Enviada y el paciente la ve dentro de la aplicación. Con el remitente de pruebas de Resend solo se puede escribir
-al correo de su propia cuenta; para enviar a pacientes verifique un dominio.
+El enlace para restablecer la contraseña **solo debe llegar al correo del usuario**. Por eso en la nube use
+`DEMO_MODE=false`: así la pantalla nunca muestra el enlace. (`DEMO_MODE=true` sin proveedor de correo es solo para pruebas locales.)
+
+Render gratis bloquea SMTP, de modo que el backend envía por API HTTPS con [Brevo](https://www.brevo.com) (plan gratis,
+300 correos/día, no necesita dominio propio):
+
+1. Cree una cuenta en Brevo y verifique su correo Gmail en **Senders, domains & dedicated IPs → Senders**.
+2. En **SMTP & API → API keys** genere una clave.
+3. En el backend de Render agregue: `BREVO_API_KEY` = la clave, `MAIL_FROM_EMAIL` = su Gmail verificado, `DEMO_MODE` = `false`.
+4. Si Brevo muestra "transactional platform has not been activated", pida la activación a su soporte.
+
+Los correos enviados desde una dirección Gmail pueden caer en spam; para uso real conviene un dominio propio.
+Alternativa: Resend (`RESEND_API_KEY`), que sin dominio verificado solo envía al correo de su propia cuenta.
+Sin ningún proveedor los correos se simulan y el paciente ve la notificación dentro de la aplicación.
 
 ### Límites del plan gratuito de Render
 
 - El backend se duerme tras 15 minutos sin uso; la primera petición tarda cerca de un minuto en despertar.
 - La base PostgreSQL gratuita **expira a los 30 días** de su creación (con unos días de gracia antes de borrarse) y no tiene
   copias de seguridad. Para una demostración sirve; para uso real conviene un plan de pago.
-- Para dejar la demo "limpia" ponga `MOSTRAR_DEMO=false` en el frontend, `DEMO_MODE=false` en el backend y cambie `DEMO_PASSWORD`.
+- Para dejar la demo "limpia" ponga `MOSTRAR_DEMO=false` en el frontend y cambie `DEMO_PASSWORD`.
 
 ## API (resumen)
 

@@ -61,8 +61,12 @@ final class AuthController
                 'Clínica Vida Salud - Restablecer contraseña',
                 "Para crear una nueva contraseña abra este enlace (vence en 1 hora):\n$enlace"
             );
-            // Modo demostración: sin proveedor de correo se muestra el enlace en pantalla
-            if (Env::bool('DEMO_MODE') && (Env::get('RESEND_API_KEY') === null || !$enviado)) {
+            // Solo en modo demostración y SIN proveedor de correo configurado se muestra el enlace.
+            // Con un proveedor configurado el enlace viaja únicamente por correo.
+            if (!$enviado) {
+                error_log('[AUTH] No se pudo enviar el correo de recuperación a un usuario');
+            }
+            if (Env::bool('DEMO_MODE') && !Mailer::configurado()) {
                 $respuesta['enlace_demo'] = $enlace;
             }
         }
