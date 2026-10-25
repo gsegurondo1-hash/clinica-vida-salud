@@ -37,6 +37,30 @@ export function login(app) {
     ${MOSTRAR_DEMO ? `<p class="demo muted">Cuentas de prueba, contraseña <code>Clinica2026*</code>:
       <code>admin</code>, <code>recepcion1</code>, <code>jperez</code> (médico), <code>mlopez</code> (paciente).</p>` : ''}`);
 
+  let reloj = null;
+  const bloquear = (segundos) => {
+    const btn = $('#f button[type=submit]');
+    const fin = Date.now() + segundos * 1000;
+    clearInterval(reloj);
+    btn.disabled = true;
+    const pintar = () => {
+      const resta = Math.max(0, Math.ceil((fin - Date.now()) / 1000));
+      const mm = String(Math.floor(resta / 60)).padStart(2, '0');
+      const ss = String(resta % 60).padStart(2, '0');
+      if (resta === 0) {
+        clearInterval(reloj);
+        $('#msg').innerHTML = '<div class="aviso info">Ya puede intentar nuevamente.</div>';
+        btn.disabled = false;
+        return;
+      }
+      $('#msg').innerHTML = `<div class="aviso error" role="alert"><strong>Acceso bloqueado temporalmente</strong><br>
+        Se superó el número de intentos fallidos. Por seguridad podrá intentar de nuevo en <strong>${mm}:${ss}</strong>.
+        Si olvidó su contraseña, use "Olvidé mi contraseña".</div>`;
+    };
+    pintar();
+    reloj = setInterval(pintar, 1000);
+  };
+
   $('#f').onsubmit = async (e) => {
     e.preventDefault();
     const d = leer(e.target);
@@ -50,9 +74,13 @@ export function login(app) {
       sesion.guardar(r.token);
       window.dispatchEvent(new CustomEvent('sesion-iniciada', { detail: r.usuario }));
     } catch (err) {
-      $('#msg').innerHTML = `<div class="aviso error">${esc(err.message)}</div>`;
-      btn.disabled = false;
       btn.textContent = 'Iniciar sesión';
+      if (err.estado === 429 && err.datos.bloqueado_seg) {
+        bloquear(err.datos.bloqueado_seg);
+        return;
+      }
+      $('#msg').innerHTML = `<div class="aviso error" role="alert">${esc(err.message)}</div>`;
+      btn.disabled = false;
     }
   };
 }

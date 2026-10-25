@@ -153,8 +153,16 @@ Autenticación con `Authorization: Bearer <token>`. Todas las rutas cuelgan de `
 | Citas | `GET /disponibilidad`, `GET/POST /citas`, `PUT /citas/{id}/reprogramar`, `POST /citas/{id}/cancelar`, `POST /citas/{id}/estado`, `GET /agenda`, `GET /historial` |
 | Informes | `GET /reportes/{tipo}` (`&formato=csv`), `GET /bitacora`, `GET /notificaciones` |
 
+## Seguridad del inicio de sesión
+
+Tras 5 contraseñas incorrectas seguidas (`LOGIN_MAX_INTENTOS`) el acceso con ese usuario o correo se bloquea 15 minutos
+(`LOGIN_BLOQUEO_MIN`). La pantalla avisa cuántos intentos quedan y muestra una cuenta regresiva durante el bloqueo.
+El bloqueo se levanta antes si la persona restablece su contraseña por correo. Los intentos se guardan en la tabla
+`intentos_login`, que se crea sola aunque la base ya esté desplegada.
+
 ## Notas sobre el documento
 
+- El bloqueo por intentos fallidos no figura en el documento; se agregó como mejora de seguridad.
 - El Administrador recibe `agenda.consultar` y la Recepcionista `reportes.ver`, porque CU-15 y CU-19 los listan como actores
   y la tabla de permisos de ejemplo no los incluía.
 - La paciente PAC-0003 tiene correo `asuarez@mail.com` (igual que su cuenta) para poder recibir notificaciones.

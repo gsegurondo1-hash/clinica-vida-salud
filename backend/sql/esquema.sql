@@ -160,6 +160,14 @@ CREATE TABLE bitacora (
     fecha_evento TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Control de intentos fallidos de inicio de sesion (bloqueo temporal)
+CREATE TABLE IF NOT EXISTS intentos_login (
+    clave VARCHAR(150) PRIMARY KEY,
+    intentos INT NOT NULL DEFAULT 0,
+    bloqueado_hasta TIMESTAMP,
+    ultimo_intento TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Impide dos citas activas de un medico en el mismo inicio, incluso con reservas simultaneas
 CREATE UNIQUE INDEX uq_cita_medico_horario
     ON citas (id_medico, fecha_cita, hora_inicio)
