@@ -10,6 +10,62 @@ final class UsuarioController
         Http::json(200, ['roles' => Db::all('SELECT id_rol, nombre, descripcion FROM roles WHERE habilitado ORDER BY id_rol')]);
     }
 
+    /** CU-05: permisos básicos asignados a un rol. */
+    public static function permisos(array $p): void
+    {
+        Auth::need('usuarios.gestionar');
+        $id = (int)$p['id'];
+        $rol = Db::one('SELECT id_rol, nombre FROM roles WHERE id_rol = :id AND habilitado', ['id' => $id]);
+        if ($rol === null) {
+            Http::error(404, 'Rol no encontrado');
+        }
+        $filas = Db::all(
+            'SELECT p.id_permiso, p.nombre, p.descripcion, (rp.id_rol IS NOT NULL) AS asignado
+             FROM permisos p LEFT JOIN rol_permiso rp ON rp.id_permiso = p.id_permiso AND rp.id_rol = :r
+             ORDER BY p.nombre',
+            ['r' => $id]
+        );
+        Http::json(200, ['rol' => $rol, 'permisos' => $filas]);
+    }
+
+    public static function guardarPermisos(array $p): void
+    {
+        $actor = Auth::need('usuarios.gestionar');
+        $id = (int)$p['id'];
+        $rol = Db::one('SELECT id_rol, nombre FROM roles WHERE id_rol = :id AND habilitado', ['id' => $id]);
+        if ($rol === null) {
+            Http::error(404, 'Rol no encontrado');
+        }
+        $d = Http::body();
+        if (!isset($d['permisos']) || !is_array($d['permisos'])) {
+            Http::error(422, 'Indique la lista de permisos del rol');
+        }
+        $ids = array_values(array_unique(array_map('intval', $d['permisos'])));
+        $validos = array_map('intval', array_column(Db::all('SELECT id_permiso FROM permisos'), 'id_permiso'));
+        foreach ($ids as $i) {
+            if (!in_array($i, $validos, true)) {
+                Http::error(422, 'Alguno de los permisos indicados no existe');
+            }
+        }
+        // El administrador nunca puede quedarse sin la gestión de usuarios (perdería el acceso a esta pantalla)
+        if ($rol['nombre'] === 'Administrador') {
+            $clave = (int)Db::val("SELECT id_permiso FROM permisos WHERE nombre = 'usuarios.gestionar'");
+            if (!in_array($clave, $ids, true)) {
+                Http::error(422, 'El rol Administrador debe conservar el permiso de gestionar usuarios y roles');
+            }
+        }
+        $antes = array_column(Db::all('SELECT p.nombre FROM rol_permiso rp JOIN permisos p ON p.id_permiso = rp.id_permiso WHERE rp.id_rol = :r ORDER BY p.nombre', ['r' => $id]), 'nombre');
+        Db::tx(function () use ($id, $ids, $actor, $antes) {
+            Db::run('DELETE FROM rol_permiso WHERE id_rol = :r', ['r' => $id]);
+            foreach ($ids as $i) {
+                Db::run('INSERT INTO rol_permiso (id_rol, id_permiso) VALUES (:r, :p)', ['r' => $id, 'p' => $i]);
+            }
+            $despues = array_column(Db::all('SELECT p.nombre FROM rol_permiso rp JOIN permisos p ON p.id_permiso = rp.id_permiso WHERE rp.id_rol = :r ORDER BY p.nombre', ['r' => $id]), 'nombre');
+            Db::bitacora((int)$actor['id_usuario'], 'rol_permiso', $id, 'UPDATE', ['permisos' => $antes], ['permisos' => $despues]);
+        });
+        Http::json(200, ['id_rol' => $id, 'permisos' => count($ids)]);
+    }
+
     public static function listar(array $p): void
     {
         Auth::need('usuarios.gestionar');

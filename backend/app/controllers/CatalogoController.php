@@ -23,7 +23,7 @@ final class CatalogoController
 
     public static function crearEspecialidad(array $p): void
     {
-        Auth::need('especialidades.gestionar');
+        $actor = Auth::need('especialidades.gestionar');
         $d = Http::body();
         $nombre = V::str($d, 'nombre', 'El nombre de la especialidad', 80);
         $desc = V::str($d, 'descripcion', 'La descripción', 200, false);
@@ -32,12 +32,14 @@ final class CatalogoController
             "INSERT INTO especialidades (nombre, nombre_normalizado, descripcion) VALUES (:n, '', :d) RETURNING id_especialidad",
             ['n' => $nombre, 'd' => $desc]
         );
+        Db::bitacora((int)$actor['id_usuario'], 'especialidades', (int)$fila['id_especialidad'], 'INSERT', null,
+            ['nombre' => $nombre, 'descripcion' => $desc]);
         Http::json(201, $fila);
     }
 
     public static function actualizarEspecialidad(array $p): void
     {
-        Auth::need('especialidades.gestionar');
+        $actor = Auth::need('especialidades.gestionar');
         $id = (int)$p['id'];
         $d = Http::body();
         $nombre = V::str($d, 'nombre', 'El nombre de la especialidad', 80);
@@ -61,6 +63,8 @@ final class CatalogoController
         if ($n === 0) {
             Http::error(404, 'Especialidad no encontrada');
         }
+        Db::bitacora((int)$actor['id_usuario'], 'especialidades', $id, 'UPDATE', null,
+            ['nombre' => $nombre, 'descripcion' => $desc, 'habilitado' => $habilitado]);
         Http::json(200, ['id_especialidad' => $id]);
     }
 
@@ -206,7 +210,7 @@ final class CatalogoController
 
     public static function crearHorario(array $p): void
     {
-        Auth::need('horarios.gestionar');
+        $actor = Auth::need('horarios.gestionar');
         $d = Http::body();
         $h = self::validarHorario($d, null);
         $fila = Db::one(
@@ -214,15 +218,18 @@ final class CatalogoController
              VALUES (:m, :d, :i, :f, :c) RETURNING id_horario',
             ['m' => $h['medico'], 'd' => $h['dia'], 'i' => $h['inicio'], 'f' => $h['fin'], 'c' => $h['duracion']]
         );
+        Db::bitacora((int)$actor['id_usuario'], 'horarios_atencion', (int)$fila['id_horario'], 'INSERT', null,
+            ['id_medico' => $h['medico'], 'dia_semana' => $h['dia'], 'hora_inicio' => $h['inicio'], 'hora_fin' => $h['fin'], 'duracion_cita_min' => $h['duracion']]);
         Http::json(201, ['id_horario' => $fila['id_horario'], 'bloques' => $h['bloques']]);
     }
 
     public static function actualizarHorario(array $p): void
     {
-        Auth::need('horarios.gestionar');
+        $actor = Auth::need('horarios.gestionar');
         $id = (int)$p['id'];
         $d = Http::body();
         $h = self::validarHorario($d, $id);
+        $antes = Db::one('SELECT dia_semana, hora_inicio, hora_fin, duracion_cita_min, habilitado FROM horarios_atencion WHERE id_horario = :id', ['id' => $id]);
         $n = Db::run(
             'UPDATE horarios_atencion SET dia_semana = :d, hora_inicio = :i, hora_fin = :f, duracion_cita_min = :c, habilitado = :h WHERE id_horario = :id',
             ['d' => $h['dia'], 'i' => $h['inicio'], 'f' => $h['fin'], 'c' => $h['duracion'], 'h' => Db::b(V::bool($d, 'habilitado')), 'id' => $id]
@@ -230,15 +237,20 @@ final class CatalogoController
         if ($n === 0) {
             Http::error(404, 'Horario no encontrado');
         }
+        Db::bitacora((int)$actor['id_usuario'], 'horarios_atencion', $id, 'UPDATE', $antes,
+            ['dia_semana' => $h['dia'], 'hora_inicio' => $h['inicio'], 'hora_fin' => $h['fin'], 'duracion_cita_min' => $h['duracion'], 'habilitado' => V::bool($d, 'habilitado')]);
         Http::json(200, ['id_horario' => $id, 'bloques' => $h['bloques']]);
     }
 
     public static function eliminarHorario(array $p): void
     {
-        Auth::need('horarios.gestionar');
-        if (Db::run('DELETE FROM horarios_atencion WHERE id_horario = :id', ['id' => (int)$p['id']]) === 0) {
+        $actor = Auth::need('horarios.gestionar');
+        $id = (int)$p['id'];
+        $antes = Db::one('SELECT id_medico, dia_semana, hora_inicio, hora_fin, duracion_cita_min FROM horarios_atencion WHERE id_horario = :id', ['id' => $id]);
+        if (Db::run('DELETE FROM horarios_atencion WHERE id_horario = :id', ['id' => $id]) === 0) {
             Http::error(404, 'Horario no encontrado');
         }
+        Db::bitacora((int)$actor['id_usuario'], 'horarios_atencion', $id, 'DELETE', $antes, null);
         Http::json(200, ['eliminado' => true]);
     }
 
@@ -290,7 +302,7 @@ final class CatalogoController
 
     public static function crearBloqueo(array $p): void
     {
-        Auth::need('horarios.gestionar');
+        $actor = Auth::need('horarios.gestionar');
         $d = Http::body();
         $medico = V::int($d, 'id_medico', 'El médico', 1, 2147483647, false);
         if ($medico !== null && Db::val('SELECT 1 FROM medicos WHERE id_medico = :id', ['id' => $medico]) === null) {
@@ -333,15 +345,20 @@ final class CatalogoController
             'INSERT INTO bloqueos_agenda (id_medico, fecha, hora_inicio, hora_fin, motivo) VALUES (:m, :f, :i, :h, :mo) RETURNING id_bloqueo',
             ['m' => $medico, 'f' => $fecha, 'i' => $ini, 'h' => $fin, 'mo' => $motivo]
         );
+        Db::bitacora((int)$actor['id_usuario'], 'bloqueos_agenda', (int)$fila['id_bloqueo'], 'INSERT', null,
+            ['id_medico' => $medico, 'fecha' => $fecha, 'hora_inicio' => $ini, 'hora_fin' => $fin, 'motivo' => $motivo]);
         Http::json(201, ['id_bloqueo' => $fila['id_bloqueo'], 'citas_afectadas' => $afectadas]);
     }
 
     public static function eliminarBloqueo(array $p): void
     {
-        Auth::need('horarios.gestionar');
-        if (Db::run('DELETE FROM bloqueos_agenda WHERE id_bloqueo = :id', ['id' => (int)$p['id']]) === 0) {
+        $actor = Auth::need('horarios.gestionar');
+        $id = (int)$p['id'];
+        $antes = Db::one('SELECT id_medico, fecha, hora_inicio, hora_fin, motivo FROM bloqueos_agenda WHERE id_bloqueo = :id', ['id' => $id]);
+        if (Db::run('DELETE FROM bloqueos_agenda WHERE id_bloqueo = :id', ['id' => $id]) === 0) {
             Http::error(404, 'Bloqueo no encontrado');
         }
+        Db::bitacora((int)$actor['id_usuario'], 'bloqueos_agenda', $id, 'DELETE', $antes, null);
         Http::json(200, ['eliminado' => true]);
     }
 }

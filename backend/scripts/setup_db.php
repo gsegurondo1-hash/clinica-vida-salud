@@ -42,7 +42,8 @@ $leer = static function (string $nombre): string {
     return $sql;
 };
 
-$clave = Env::get('DEMO_PASSWORD', 'Clinica2026*');
+// Sin DEMO_PASSWORD se genera una contraseña aleatoria (se muestra una sola vez en el registro).
+$clave = (string)(Env::get('DEMO_PASSWORD') ?: bin2hex(random_bytes(8)));
 
 try {
     $pdo->beginTransaction();
@@ -65,4 +66,4 @@ try {
 }
 
 echo "Base de datos inicializada.\n";
-echo "Usuarios de prueba (contrasena: $clave): admin, recepcion1, jperez, lfernandez, rjustiniano, mlopez, pgutierrez, asuarez\n";
+echo "Usuarios iniciales (contrasena: $clave; cambiela desde Usuarios y roles): admin, recepcion1, jperez, lfernandez, rjustiniano, mlopez, pgutierrez, asuarez\n";

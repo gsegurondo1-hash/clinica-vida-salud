@@ -197,13 +197,32 @@ final class ReporteController
             $w[] = 'b.fecha_evento::DATE <= :h';
             $par['h'] = $hasta;
         }
+        $csv = Http::query('formato') === 'csv';
         $eventos = Db::all(
             "SELECT b.id_bitacora, to_char(b.fecha_evento, 'YYYY-MM-DD HH24:MI:SS') AS fecha, COALESCE(u.nombre_usuario, 'sistema') AS usuario,
                     b.tabla_afectada AS tabla, b.registro_afectado AS registro, b.accion, b.datos_anteriores, b.datos_nuevos
              FROM bitacora b LEFT JOIN usuarios u ON u.id_usuario = b.id_usuario" .
-            ($w ? ' WHERE ' . implode(' AND ', $w) : '') . ' ORDER BY b.fecha_evento DESC, b.id_bitacora DESC LIMIT 300',
+            ($w ? ' WHERE ' . implode(' AND ', $w) : '') . ' ORDER BY b.fecha_evento DESC, b.id_bitacora DESC LIMIT ' . ($csv ? 5000 : 300),
             $par
         );
+        // Cada evento se muestra como una frase legible (sin códigos ni JSON)
+        foreach ($eventos as &$ev) {
+            $ev['descripcion'] = BitacoraTexto::describir($ev['tabla'], $ev['accion'], (int)$ev['registro'], $ev['datos_anteriores'], $ev['datos_nuevos']);
+            $ev['tabla_nombre'] = BitacoraTexto::tabla($ev['tabla']);
+            $ev['accion_nombre'] = BitacoraTexto::accion($ev['accion']);
+            unset($ev['datos_anteriores'], $ev['datos_nuevos']);
+        }
+        unset($ev);
+        if ($csv) {
+            self::csv([
+                'tipo' => 'bitacora',
+                'columnas' => [
+                    ['k' => 'fecha', 'label' => 'Fecha'], ['k' => 'usuario', 'label' => 'Usuario'], ['k' => 'tabla_nombre', 'label' => 'Sección'],
+                    ['k' => 'accion_nombre', 'label' => 'Acción'], ['k' => 'descripcion', 'label' => 'Qué hizo'],
+                ],
+                'filas' => $eventos,
+            ]);
+        }
         $tablas = array_column(Db::all('SELECT DISTINCT tabla_afectada FROM bitacora ORDER BY 1'), 'tabla_afectada');
         $usuarios = Db::all('SELECT id_usuario, nombre_usuario FROM usuarios ORDER BY nombre_usuario');
         Http::json(200, ['eventos' => $eventos, 'tablas' => $tablas, 'usuarios' => $usuarios]);

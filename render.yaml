@@ -32,8 +32,8 @@ services:
         sync: false
       - key: MAIL_FROM_EMAIL    # correo remitente verificado en Brevo
         sync: false
-      - key: DEMO_PASSWORD
-        value: Clinica2026*
+      - key: DEMO_PASSWORD      # contrasena inicial de las cuentas semilla (elija una segura)
+        sync: false
       - key: CORS_ORIGIN        # URL del frontend, ej: https://clinica-vida-salud-web.onrender.com
         sync: false
       - key: FRONTEND_URL       # la misma URL del frontend
@@ -50,4 +50,4 @@ services:
       - key: API_URL            # ej: https://clinica-vida-salud-api.onrender.com/api
         sync: false
       - key: MOSTRAR_DEMO
-        value: "true"
+        value: "false"

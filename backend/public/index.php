@@ -48,6 +48,8 @@ $r->add('GET', '/perfil', 'PacienteController::perfil');
 $r->add('PUT', '/perfil', 'PacienteController::actualizarPerfil');
 
 $r->add('GET', '/roles', 'UsuarioController::roles');
+$r->add('GET', '/roles/{id}/permisos', 'UsuarioController::permisos');
+$r->add('PUT', '/roles/{id}/permisos', 'UsuarioController::guardarPermisos');
 $r->add('GET', '/usuarios', 'UsuarioController::listar');
 $r->add('POST', '/usuarios', 'UsuarioController::crear');
 $r->add('PUT', '/usuarios/{id}', 'UsuarioController::actualizar');

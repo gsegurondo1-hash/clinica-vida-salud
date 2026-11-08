@@ -1,5 +1,4 @@
 import { api, sesion } from '../api.js';
-import { MOSTRAR_DEMO } from '../config.js';
 import { $, esc, campo, leer, toast } from '../ui.js';
 
 function marco(contenido) {
@@ -34,8 +33,7 @@ export function login(app) {
       <p style="margin-top:1rem"><button class="btn" type="submit">Iniciar sesión</button></p>
     </form>
     <div class="enlaces"><a href="#/registro">Crear cuenta de paciente</a><a href="#/recuperar">Olvidé mi contraseña</a></div>
-    ${MOSTRAR_DEMO ? `<p class="demo muted">Cuentas de prueba, contraseña <code>Clinica2026*</code>:
-      <code>admin</code>, <code>recepcion1</code>, <code>jperez</code> (médico), <code>mlopez</code> (paciente).</p>` : ''}`);
+  `);
 
   let reloj = null;
   const bloquear = (segundos) => {

@@ -23,9 +23,22 @@ clinica-vida-salud/
 Las reglas de negocio críticas (sin citas duplicadas ni superpuestas, estados válidos, historial, bitácora, no borrar
 registros con citas) viven en la base de datos: triggers y procedimientos del documento. La API solo los invoca.
 
-## Usuarios de prueba
+## Cambios respecto a la versión anterior (alineación con el documento, Ciclo 2)
 
-Contraseña de todos: `Clinica2026*` (se puede cambiar con `DEMO_PASSWORD`).
+| Caso de uso | Qué se agregó |
+|---|---|
+| CU-20 Bitácora | Cada evento se muestra como una **frase legible** (por ejemplo «Cambió el estado de la cita CM-0006 de Programada a Cancelada») en vez de datos técnicos. Botón **Exportar CSV** (`GET /api/bitacora?formato=csv`, hasta 5000 eventos con los filtros activos). |
+| CU-05 Usuarios y roles | Sección **Permisos por rol** (`GET/PUT /api/roles/{id}/permisos`). El rol Administrador siempre conserva `usuarios.gestionar`. El cambio queda en la bitácora. |
+| Auditoría (CU-06, CU-07, CU-08, CU-17) | La bitácora ahora también registra altas, cambios y bajas de especialidades, horarios de atención y bloqueos de agenda (antes solo citas, pacientes, médicos y usuarios). |
+
+No hay cambios en el esquema de la base de datos, por lo que no hace falta recrearla: basta con volver a desplegar.
+
+## Cuentas iniciales
+
+Las cuentas semilla (`admin`, `recepcion1`, `jperez`, `lfernandez`, `rjustiniano`, `mlopez`, `pgutierrez`, `asuarez`) se crean con la
+contraseña de `DEMO_PASSWORD`; si no se define, se genera una aleatoria que aparece una sola vez en el registro del despliegue.
+La pantalla de acceso **no muestra** cuentas ni contraseñas. En un sistema ya desplegado, cambie las contraseñas desde
+*Usuarios y roles* (o desactive las cuentas que no use) para que nadie pueda entrar con las credenciales de ejemplo.
 
 | Usuario | Rol |
 |---|---|
@@ -137,7 +150,7 @@ Sin ningún proveedor los correos se simulan y el paciente ve la notificación d
 - El backend se duerme tras 15 minutos sin uso; la primera petición tarda cerca de un minuto en despertar.
 - La base PostgreSQL gratuita **expira a los 30 días** de su creación (con unos días de gracia antes de borrarse) y no tiene
   copias de seguridad. Para una demostración sirve; para uso real conviene un plan de pago.
-- Para dejar la demo "limpia" ponga `MOSTRAR_DEMO=false` en el frontend y cambie `DEMO_PASSWORD`.
+- La pantalla de acceso ya no muestra las cuentas de prueba (`MOSTRAR_DEMO=false` por defecto). Cambie las contraseñas de las cuentas semilla.
 
 ## API (resumen)
 

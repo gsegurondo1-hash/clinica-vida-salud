@@ -4,7 +4,8 @@ import { $, esc, campo, leer, modal, tabla, delegar, toast, badge, cargando, fmt
 // ---------------------------------------------------------------- usuarios y roles (CU-05)
 export async function usuarios(main) {
   main.innerHTML = `<div class="cabecera"><div><h1>Usuarios y roles</h1><p>Cuentas de acceso del personal y de los pacientes.</p></div>
-    <button class="btn" id="nuevo" type="button">Nuevo usuario</button></div><div id="t"></div>`;
+    <button class="btn" id="nuevo" type="button">Nuevo usuario</button></div><div id="t"></div>
+    <section id="permisos" style="margin-top:2rem"></section>`;
   const [roles, meds, pacs] = await Promise.all([
     api('GET', '/roles'), api('GET', '/medicos'), api('GET', '/pacientes?estado=todos'),
   ]);
@@ -69,7 +70,32 @@ export async function usuarios(main) {
 
   $('#nuevo').onclick = () => formulario();
   delegar($('#t'), { editar: (id) => formulario(datos.find((x) => String(x.id_usuario) === id)) });
-  await cargar();
+
+  // Permisos básicos por rol (CU-05)
+  const panel = $('#permisos');
+  panel.innerHTML = `<h2>Permisos por rol</h2>
+    <p class="muted small">Marque lo que puede hacer cada rol. Los cambios se aplican en el siguiente inicio de sesión de sus usuarios.</p>
+    <form class="filtros" id="fp">${campo({ l: 'Rol', n: 'rol', t: 'select', op: roles.roles.map((r) => [r.id_rol, r.nombre]) })}</form>
+    <div id="pl"></div>`;
+  const mostrarPermisos = async () => {
+    const id = $('#c_rol').value;
+    cargando($('#pl'));
+    const r = await api('GET', `/roles/${id}/permisos`);
+    $('#pl').innerHTML = `<div class="form-grid">${r.permisos.map((p) => `<label class="campo check">
+        <input type="checkbox" value="${esc(p.id_permiso)}" ${p.asignado ? 'checked' : ''}> <span><strong>${esc(p.nombre)}</strong><br><span class="small muted">${esc(p.descripcion || '')}</span></span></label>`).join('')}</div>
+      <button class="btn" type="button" id="gp">Guardar permisos de ${esc(r.rol.nombre)}</button>`;
+    $('#gp').onclick = async () => {
+      const marcados = [...$('#pl').querySelectorAll('input[type=checkbox]:checked')].map((c) => Number(c.value));
+      try {
+        await api('PUT', `/roles/${id}/permisos`, { permisos: marcados });
+        toast('Permisos guardados');
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    };
+  };
+  $('#c_rol').onchange = () => mostrarPermisos().catch((e) => toast(e.message, 'error'));
+  await Promise.all([cargar(), mostrarPermisos()]);
 }
 
 // ---------------------------------------------------------------- reportes (CU-19)
@@ -123,31 +149,30 @@ export async function reportes(main) {
 
 // ---------------------------------------------------------------- bitácora (CU-20)
 export async function bitacora(main) {
-  main.innerHTML = `<div class="cabecera"><div><h1>Bitácora de auditoría</h1><p>Quién cambió qué y cuándo. Se muestran los últimos 300 eventos.</p></div></div>
+  main.innerHTML = `<div class="cabecera"><div><h1>Bitácora de auditoría</h1><p>Quién hizo qué y cuándo, explicado en palabras. Se muestran los últimos 300 eventos.</p></div></div>
     <form class="filtros" id="f"></form><div id="t"></div>`;
 
-  const detalle = (txt) => {
-    if (!txt) return '<span class="muted">—</span>';
-    return `<details><summary class="small">Ver</summary><code class="small" style="word-break:break-all">${esc(txt)}</code></details>`;
-  };
+  const NOMBRES = { citas: 'Citas', pacientes: 'Pacientes', medicos: 'Médicos', usuarios: 'Usuarios', especialidades: 'Especialidades', horarios_atencion: 'Horarios de atención', bloqueos_agenda: 'Bloqueos de agenda', rol_permiso: 'Permisos por rol' };
 
   const cargar = async () => {
     const r = await api('GET', `/bitacora${qs(leer($('#f')))}`);
     if (!$('#f').children.length) {
       $('#f').innerHTML = `${campo({ l: 'Usuario', n: 'id_usuario', t: 'select', op: [['', 'Todos'], ...r.usuarios.map((u) => [u.id_usuario, u.nombre_usuario])] })}
-        ${campo({ l: 'Tabla', n: 'tabla', t: 'select', op: [['', 'Todas'], ...r.tablas.map((t) => [t, t])] })}
+        ${campo({ l: 'Tabla', n: 'tabla', t: 'select', op: [['', 'Todas'], ...r.tablas.map((t) => [t, NOMBRES[t] || t])] })}
         ${campo({ l: 'Acción', n: 'accion', t: 'select', op: [['', 'Todas'], ['INSERT', 'Alta'], ['UPDATE', 'Cambio'], ['DELETE', 'Baja']] })}
         ${campo({ l: 'Desde', n: 'desde', t: 'date' })}${campo({ l: 'Hasta', n: 'hasta', t: 'date' })}
-        <button class="btn sec" type="submit">Filtrar</button>`;
+        <button class="btn sec" type="submit">Filtrar</button>
+        <button class="btn sec" type="button" id="csv">Exportar CSV</button>`;
+      $('#csv').onclick = () => {
+        descargar(`/bitacora${qs({ ...leer($('#f')), formato: 'csv' })}`, 'bitacora.csv').catch((e) => toast(e.message, 'error'));
+      };
     }
     $('#t').innerHTML = tabla([
       { t: 'Fecha', f: (e) => esc(e.fecha) },
       { t: 'Usuario', f: (e) => esc(e.usuario) },
-      { t: 'Tabla', f: (e) => esc(e.tabla) },
-      { t: 'Registro', f: (e) => esc(e.registro), cls: 'num' },
-      { t: 'Acción', f: (e) => esc(e.accion) },
-      { t: 'Antes', f: (e) => detalle(e.datos_anteriores) },
-      { t: 'Después', f: (e) => detalle(e.datos_nuevos) },
+      { t: 'Sección', f: (e) => esc(e.tabla_nombre) },
+      { t: 'Acción', f: (e) => esc(e.accion_nombre) },
+      { t: 'Qué hizo', f: (e) => esc(e.descripcion) },
     ], r.eventos, 'No hay eventos para esos filtros.');
   };
   $('#f').onsubmit = (e) => { e.preventDefault(); cargar().catch((x) => toast(x.message, 'error')); };
